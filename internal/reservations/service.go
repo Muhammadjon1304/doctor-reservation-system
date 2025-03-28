@@ -9,11 +9,38 @@ import (
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	authRepo *auth.Repository
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, authRepo *auth.Repository) *Service {
+	return &Service{
+		repo:     repo,
+		authRepo: authRepo,
+	}
+}
+
+func (s *Service) GetUserByID(userID int) (*auth.User, error) {
+	// Implement a method to fetch user by ID
+	query := `
+		SELECT id, username, email, phone
+		FROM users 
+		WHERE id = $1
+	`
+
+	user := &auth.User{}
+	err := s.authRepo.DB.QueryRow(query, userID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Phone,
+	)
+
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	return user, nil
 }
 
 func (s *Service) CreateReservation(

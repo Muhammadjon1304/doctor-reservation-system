@@ -42,15 +42,17 @@ func main() {
 	// Initialize services
 	authService := auth.NewService(authRepo)
 	doctorService := doctors.NewService(doctorRepo)
-	reservationService := reservations.NewService(reservationRepo)
+	reservationService := reservations.NewService(reservationRepo, authRepo)
 	notificationService := notifications.NewService()
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	doctorHandler := handlers.NewDoctorHandler(doctorService)
+	// In main.go
 	reservationHandler := handlers.NewReservationHandler(
 		reservationService,
 		notificationService,
+		db, // Pass the database connection
 	)
 	m.RunMigrations()
 	// Create router

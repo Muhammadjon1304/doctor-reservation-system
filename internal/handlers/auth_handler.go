@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"os"
+	"time"
 
 	"doctor-reservation-system/internal/auth"
 )
@@ -13,6 +16,41 @@ type AuthHandler struct {
 
 func NewAuthHandler(service *auth.Service) *AuthHandler {
 	return &AuthHandler{service: service}
+}
+
+// JWT Claims structure
+type Claims struct {
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
+	jwt.RegisteredClaims
+}
+
+// Generate JWT token
+func generateJWTToken(user *auth.User) (string, error) {
+	// Set token expiration to 24 hours
+	expirationTime := time.Now().Add(24 * time.Hour)
+
+	claims := &Claims{
+		UserID:   user.ID,
+		Username: user.Username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "doctor_reservations_app",
+		},
+	}
+
+	// Create token with signing method
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Get secret key from environment or use a default for development
+	secretKey := os.Getenv("JWT_SECRET_KEY")
+	if secretKey == "" {
+		secretKey = "development_secret_key_change_in_production"
+	}
+
+	// Sign and get the complete encoded token as a string
+	return token.SignedString([]byte(secretKey))
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -57,9 +95,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate JWT token
+	tokenString, err := generateJWTToken(user)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
 	// Respond with user info (in real app, you'd generate a token)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
+		"token":    tokenString,
 		"user_id":  user.ID,
 		"username": user.Username,
 	})
